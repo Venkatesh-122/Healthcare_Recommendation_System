@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Healthcare Recommendation System</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#06b6d4}
+    body{font-family:Inter,ui-sans-serif,system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: linear-gradient(180deg,#071226 0%, #071b2a 100%); color:#e6eef6; margin:0; padding:32px}
+    .container{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px}
+    h1{font-size:22px;margin:0}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6);}
+    label{font-size:13px;color:var(--muted)}
+    .symptom-input{display:flex;gap:8px;align-items:center}
+    input[type="text"], select, textarea{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:10px 12px;border-radius:8px;color:inherit;width:100%}
+    button{background:#036a7c;border:none;color:#ffffff;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .chip{background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:999px;font-size:13px;border:1px solid rgba(255,255,255,0.03)}
+    .chip .x{margin-left:8px;cursor:pointer;opacity:0.7}
+    .results{margin-top:18px}
+    pre{background:#07121a;padding:12px;border-radius:8px;overflow:auto}
+    .footer{margin-top:18px;color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:18px}
+    .small{font-size:13px;color:var(--muted)}
+    .invalid{color:#ffb4b4}
+    .toggle{display:flex;align-items:center;gap:8px}
+    .pill{display:inline-block;padding:6px 10px;background:#052233;border-radius:999px;border:1px solid rgba(255,255,255,0.02)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="card" style="padding:12px;display:flex;align-items:center;gap:12px">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6" stroke="#06b6d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 8v12" stroke="#06b6d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 8v10" stroke="#06b6d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20h18" stroke="#06323a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <h1>Healthcare Recommendation System</h1>
+          <div class="small">Enter symptoms, validate them locally and send to inference API (or use Mock Mode).</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <label for="symptomText">Symptoms (type comma-separated or click suggestions)</label>
+          <div style="margin-top:8px;display:flex;gap:10px;align-items:center">
+            <input id="symptomText" type="text" placeholder="e.g. itching, skin_rash, headache"> 
+            <button id="addBtn">Add</button>
+          </div>
+          <div class="chips" id="selectedChips" aria-live="polite"></div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <div class="pill">Detected: <strong id="validCount">0</strong></div>
+            <div class="pill">Invalid: <strong id="invalidCount">0</strong></div>
+            <div style="flex:1"></div>
+            <div class="toggle"><input type="checkbox" id="mockMode" checked> <label for="mockMode" class="small">Mock Mode</label></div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <label for="apiURL">Backend API URL (POST)</label>
+            <input id="apiURL" type="text" value="http://localhost:5000/api/predict"> 
+            <div class="small" style="margin-top:6px">If mock mode is on the page will not call backend. If you run the Python script, point this to your server endpoint (e.g. http://localhost:5000/api/predict).</div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="runBtn">Run Inference</button>
+            <button id="clearBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)">Clear</button>
+          </div>
+
+          <div class="results" id="resultsArea"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <label>Quick symptom suggestions</label>
+          <div id="suggestions" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <label>Status</label>
+          <pre id="log" style="height:220px">Ready — mock mode enabled.</pre>
+          <div style="margin-top:8px" class="small">Tips: Use the <strong>API URL</strong> to connect to inference script.</div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <label>Quick Guide</label>
+          <div class="small" style="margin-top:8px">
+            1) Put that URL in the API field and uncheck Mock Mode.
+            <br>2) Select the symptoms from the quick suggestions or type in the input box.
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <label>Full symptom list (used for validation)</label>
+      <pre id="symptomList" style="max-height:160px;overflow:auto"></pre>
+    </div>
+
+    <div class="footer">Developped by Group 7. All rights reserved </div>
+  </div>
+
+  <script>
+    // Symptom list (from your script) — kept lowercased and underscored
+    const SYMPTOMS = [
+      'itching','skin_rash','nodal_skin_eruptions','continuous_sneezing','shivering','chills','joint_pain','stomach_pain','acidity','ulcers_on_tongue','muscle_wasting','vomiting','burning_micturition','spotting_ urination','fatigue','weight_gain','anxiety','cold_hands_and_feets','mood_swings','weight_loss','restlessness','lethargy','patches_in_throat','irregular_sugar_level','cough','high_fever','sunken_eyes','breathlessness','sweating','dehydration','indigestion','headache','yellowish_skin','dark_urine','nausea','loss_of_appetite','pain_behind_the_eyes','back_pain','constipation','abdominal_pain','diarrhoea','mild_fever','yellow_urine','yellowing_of_eyes','acute_liver_failure','fluid_overload','swelling_of_stomach','swelled_lymph_nodes','malaise','blurred_and_distorted_vision','phlegm','throat_irritation','redness_of_eyes','sinus_pressure','runny_nose','congestion','chest_pain','weakness_in_limbs','fast_heart_rate','pain_during_bowel_movements','pain_in_anal_region','bloody_stool','irritation_in_anus','neck_pain','dizziness','cramps','bruising','obesity','swollen_legs','swollen_blood_vessels','puffy_face_and_eyes','enlarged_thyroid','brittle_nails','swollen_extremeties','excessive_hunger','extra_marital_contacts','drying_and_tingling_lips','slurred_speech','knee_pain','hip_joint_pain','muscle_weakness','stiff_neck','swelling_joints','movement_stiffness','spinning_movements','loss_of_balance','unsteadiness','weakness_of_one_body_side','loss_of_smell','bladder_discomfort','foul_smell_of_urine','continuous_feel_of_urine','passage_of_gases','internal_itching','toxic_look_(typhos)','depression','irritability','muscle_pain','altered_sensorium','red_spots_over_body','belly_pain','abnormal_menstruation','dischromic _patches','watering_from_eyes','increased_appetite','polyuria','family_history','mucoid_sputum','rusty_sputum','lack_of_concentration','visual_disturbances','receiving_blood_transfusion','receiving_unsterile_injections','coma','stomach_bleeding','distention_of_abdomen','history_of_alcohol_consumption','fluid_overload.1','blood_in_sputum','prominent_veins_on_calf','palpitations','painful_walking','pus_filled_pimples','blackheads','scurring','skin_peeling','silver_like_dusting','small_dents_in_nails','inflammatory_nails','blister','red_sore_around_nose','yellow_crust_ooze'
+    ];
+
+    // Small helper disease mapping (used only in mock mode to demo)
+    const MOCK_RULES = {
+      'itching': 'Fungal infection',
+      'skin_rash': 'Allergy',
+      'headache': 'Migraine',
+      'cough': 'Common Cold',
+      'high_fever': 'Dengue'
+    };
+
+    // UI elements
+    const symptomText = document.getElementById('symptomText');
+    const addBtn = document.getElementById('addBtn');
+    const chipsDiv = document.getElementById('selectedChips');
+    const validCount = document.getElementById('validCount');
+    const invalidCount = document.getElementById('invalidCount');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultsArea = document.getElementById('resultsArea');
+    const suggestions = document.getElementById('suggestions');
+    const log = document.getElementById('log');
+    const apiURL = document.getElementById('apiURL');
+    const mockModeCheckbox = document.getElementById('mockMode');
+
+    let selected = [];
+
+    function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g,'_'); }
+
+    function renderChips(){
+      chipsDiv.innerHTML = '';
+      const valids = selected.filter(s => SYMPTOMS.includes(s));
+      const invalids = selected.filter(s => !SYMPTOMS.includes(s));
+      validCount.textContent = valids.length;
+      invalidCount.textContent = invalids.length;
+
+      selected.forEach(s => {
+        const el = document.createElement('div'); el.className='chip';
+        el.innerHTML = `<span>${s}</span><span class="x" data-s="${s}">✕</span>`;
+        chipsDiv.appendChild(el);
+      });
+
+      // attach remove handlers
+      chipsDiv.querySelectorAll('.x').forEach(btn=> btn.addEventListener('click', e=>{
+        const v = e.target.getAttribute('data-s');
+        selected = selected.filter(x => x !== v); renderChips();
+      }));
+    }
+
+    addBtn.addEventListener('click', ()=>{
+      const raw = symptomText.value;
+      if(!raw) return;
+      const parts = raw.split(',').map(p=>normalize(p)).filter(p=>p);
+      parts.forEach(p=>{ if(!selected.includes(p)) selected.push(p); });
+      symptomText.value=''; renderChips();
+    });
+
+    clearBtn.addEventListener('click', ()=>{ selected=[]; renderChips(); resultsArea.innerHTML=''; log.textContent='Cleared.'; });
+
+    runBtn.addEventListener('click', async ()=>{
+      resultsArea.innerHTML = '';
+      log.textContent = 'Running inference...';
+      const valids = selected.filter(s => SYMPTOMS.includes(s));
+      const invalids = selected.filter(s => !SYMPTOMS.includes(s));
+      if(valids.length===0){ log.textContent='No valid symptoms to predict.'; resultsArea.innerHTML=`<div class="card invalid">No valid symptoms provided.</div>`; return; }
+
+      const payload = { symptoms: valids };
+
+      if(mockModeCheckbox.checked){
+        // simple mock: pick the first symptom that matches a MOCK_RULES key
+        let disease='Unknown';
+        for(const s of valids){ if(MOCK_RULES[s]){ disease = MOCK_RULES[s]; break; } }
+        showRecommendations({ disease, description: 'This is a demo (mock mode). Connect to backend for real predictions.' }, valids, invalids);
+        log.textContent = 'Mock prediction finished.';
+        return;
+      }
+
+      // real mode: call backend
+      const url = apiURL.value || '/api/predict';
+      try{
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if(!res.ok){ throw new Error('Server returned '+res.status); }
+        const data = await res.json();
+        // expected shape: { disease: '', description:'', precautions:[], medications:[], diets:[], workouts:[] }
+        showRecommendations(data, valids, invalids);
+        log.textContent = 'Server response received.';
+      }catch(err){
+        log.textContent = 'Error calling backend: '+err.message;
+        resultsArea.innerHTML = `<div class="card invalid">Error calling backend: ${err.message}</div>`;
+      }
+    });
+
+    function showRecommendations(data, valids, invalids){
+      const d = data || {};
+      const disease = d.disease || 'Unknown';
+      const desc = d.description || d.desc || '';
+      const precautions = d.precautions || d.precaution || [];
+      const medications = d.medications || d.medication || [];
+      const diets = d.diets || d.diet || [];
+      const workouts = d.workouts || d.workout || [];
+
+      const html = [`<div class="card"><strong>Predicted Disease:</strong> ${disease}</div>`];
+      if(desc) html.push(`<div class="card" style="margin-top:8px"><strong>Description:</strong><div class="small">${desc}</div></div>`);
+      if(precautions.length){ html.push(`<div class="card" style="margin-top:8px"><strong>Precautions</strong><ul>${precautions.map(p=>`<li>${p}</li>`).join('')}</ul></div>`); }
+      if(medications.length){ html.push(`<div class="card" style="margin-top:8px"><strong>Medications</strong><ul>${medications.map(m=>`<li>${m}</li>`).join('')}</ul></div>`); }
+      if(diets.length){ html.push(`<div class="card" style="margin-top:8px"><strong>Diets</strong><ul>${diets.map(x=>`<li>${x}</li>`).join('')}</ul></div>`); }
+      if(workouts.length){ html.push(`<div class="card" style="margin-top:8px"><strong>Workouts</strong><ul>${workouts.map(x=>`<li>${x}</li>`).join('')}</ul></div>`); }
+
+      if(invalids.length){ html.push(`<div class="card" style="margin-top:8px"><strong class="invalid">Unrecognized Symptoms</strong><div class="small">${invalids.join(', ')}</div></div>`); }
+
+      resultsArea.innerHTML = html.join('\n');
+    }
+
+    // populate suggestions
+    (function(){
+      const top = ['itching','skin_rash','headache','cough','high_fever','weight_loss','vomiting','abdominal_pain','joint_pain', 'fatigue', 'chills', 'bloody_stool', 'irritation_in_anus', 'runny_nose', 'loss_of_smell', 'swollen_blood_vessels'];
+      top.forEach(s => {
+        const b = document.createElement('button'); b.className='chip'; b.textContent = s; b.addEventListener('click', ()=>{ if(!selected.includes(s)) selected.push(s); renderChips(); });
+        suggestions.appendChild(b);
+      });
+
+      // show full symptom list on right panel
+      document.getElementById('symptomList').textContent = SYMPTOMS.join(', ');
+    })();
+
+    // allow Enter in input to add
+    symptomText.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
+
+    // initial render
+    renderChips();
+  </script>
+</body>
+</html>

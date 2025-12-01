@@ -1,0 +1,8 @@
+2025-11-19 01:45:43,584 - INFO - Inference system initialized
+2025-11-19 01:46:02,639 - INFO - Model loaded successfully from models/svc.pkl
+2025-11-19 01:46:02,683 - INFO - Loaded description dataset: 41 records
+2025-11-19 01:46:02,710 - INFO - Loaded precautions dataset: 41 records
+2025-11-19 01:46:02,738 - INFO - Loaded medications dataset: 41 records
+2025-11-19 01:46:02,764 - INFO - Loaded diets dataset: 41 records
+2025-11-19 01:46:02,793 - INFO - Loaded workout dataset: 410 records
+
